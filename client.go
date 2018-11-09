@@ -5,6 +5,9 @@ import "fmt"
 import "bufio"
 import "os"
 
+
+var PRINT_DEBUG = false
+
 func main() {
 
 	// connect to this socket
@@ -24,9 +27,11 @@ func main() {
 	go sendOutgoingMessage(conn, outgoingMessageChannel)
 
 	for {
-		text, _ := reader.ReadString('\n')
-		fmt.Println("read inputted message")
-		ch <- text
+		text, _ := outgoingMessageReader.ReadString('\n')
+		if PRINT_DEBUG {
+			fmt.Println("read inputted message")
+		}
+		outgoingMessageChannel <- text
 	}
 
 }
@@ -35,7 +40,9 @@ func main() {
 func WaitForOutgoingMessage(reader *bufio.Reader, ch chan string) {
 	for {
 		text, _ := reader.ReadString('\n')
-		fmt.Println("read inputted message")
+		if PRINT_DEBUG {
+			fmt.Println("read inputted message")
+		}
 		ch <- text
 	}
 }
@@ -43,8 +50,10 @@ func WaitForOutgoingMessage(reader *bufio.Reader, ch chan string) {
 func sendOutgoingMessage(conn net.Conn, ch chan string) {
 	for {
 		outgoingMessageText := <- ch
-		fmt.Println("sending outgoing string")
-		fmt.Fprintf(conn, outgoingMessageText+"\n")
+		if PRINT_DEBUG {
+			fmt.Println("sending outgoing string")
+		}
+		fmt.Fprintf(conn, outgoingMessageText)
 	}
 
 }
@@ -53,7 +62,9 @@ func sendOutgoingMessage(conn net.Conn, ch chan string) {
 func ListenForIncomingMessage(reader *bufio.Reader, ch chan string) {
 	for {
 		message, _ := reader.ReadString('\n')
-		fmt.Println("read incoming message")
+		if PRINT_DEBUG {
+			fmt.Println("read incoming message")
+		}
 		ch <- message
 	}
 }
@@ -61,7 +72,8 @@ func ListenForIncomingMessage(reader *bufio.Reader, ch chan string) {
 func printIncomingMessage(ch chan string) {
 	for {
 		message := <- ch
-		fmt.Print("Message received: " + message)
+		fmt.Println("Message received: ", message)
+
 	}
 }
 

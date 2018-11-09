@@ -45,7 +45,10 @@ func (s ChatServer) handle(conn net.Conn) {
 	s.Connections = append(s.Connections, conn)
 
 	for {
-		message, _ := bufio.NewReader(conn).ReadString('\n')
+		message, err := bufio.NewReader(conn).ReadString('\n')
+		if err != nil {
+			s.RemoveConnection(conn)
+		}
 		fmt.Print("Message Received: ", string(message))
 
 		s.broadcast(message)
@@ -56,8 +59,15 @@ func (s ChatServer) handle(conn net.Conn) {
 func (s ChatServer) broadcast(message string){
 	fmt.Print("Broadcasting message: ", message)
 	for _, value := range s.Connections {
-		value.Write([]byte(message + "\n"))
+		value.Write([]byte(message))
 		
+	}
+}
+func (s ChatServer) RemoveConnection(conn net.Conn) {
+	for i, v := range s.Connections {
+		if v == conn {
+			s.Connections = append(s.Connections[:i], s.Connections[i+1:]...)
+		}
 	}
 }
 
