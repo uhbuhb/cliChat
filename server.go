@@ -44,11 +44,13 @@ func (s ChatServer) handle(conn net.Conn) {
 	fmt.Println("handling connection..")
 	s.Connections = append(s.Connections, conn)
 
-	message, _ := bufio.NewReader(conn).ReadString('\n')
-	fmt.Print("Message Received: ", string(message))
+	for {
+		message, _ := bufio.NewReader(conn).ReadString('\n')
+		fmt.Print("Message Received: ", string(message))
 
-	s.broadcast(message)
-	fmt.Print("broadcasted")
+		s.broadcast(message)
+		fmt.Print("broadcasted")
+	}
 }
 
 func (s ChatServer) broadcast(message string){
