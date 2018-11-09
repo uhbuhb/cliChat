@@ -49,7 +49,7 @@ func (s ChatServer) handle(conn net.Conn) {
 		fmt.Print("Message Received: ", string(message))
 
 		s.broadcast(message)
-		fmt.Print("broadcasted")
+		fmt.Println("broadcasted")
 	}
 }
 
