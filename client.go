@@ -26,6 +26,8 @@ type Client struct {
 func main() {
 	conn, _ := net.Dial("tcp", "localhost:8081")
 
+	closeChannel := make(chan bool)
+
 	client := Client{
 		conn,
 		make(chan string),
@@ -35,24 +37,38 @@ func main() {
 		true,
 	}
 
-	go client.ListenForIncomingMessage()
+	go client.ListenForIncomingMessage(closeChannel)
 	go client.printIncomingMessage()
 	go client.SendOutgoingMessage()
+	go client.WaitforInput()
 
+	for {
+		closeClient := <- closeChannel
+		if closeClient {
+			fmt.Println("Chat server disconnected.. Goodbye!")
+			return
+		}
+
+	}
+
+
+
+}
+
+
+func (c *Client) WaitforInput() {
 	for {
 		//in need to figure out a way to alert user to input message..
 		//fmt.Print("Input>")
-		text, _ := client.OutgoingMessageReader.ReadString('\n')
-		if !client.Connected {
-			fmt.Println("Chat server disconnected.. Goodbye!")
+		text, _ := c.OutgoingMessageReader.ReadString('\n')
+		if !c.Connected {
 			return
 		}
 		if PRINT_DEBUG {
 			fmt.Println("read inputted message")
 		}
-		client.OutgoingMessageChannel <- text
+		c.OutgoingMessageChannel <- text
 	}
-
 }
 
 
@@ -71,7 +87,7 @@ func (c *Client) SendOutgoingMessage() {
 }
 
 
-func (c *Client) ListenForIncomingMessage() {
+func (c *Client) ListenForIncomingMessage(close chan bool ) {
 	for {
 		message, err := c.IncomingMessageReader.ReadString('\n')
 		if err != nil {
@@ -80,6 +96,7 @@ func (c *Client) ListenForIncomingMessage() {
 				fmt.Println("connection closed normally")
 				c.Connected = false
 				c.Connection.Close()
+				close <- true
 			} else {
 				fmt.Println("got different error: ", err)
 			}
@@ -103,4 +120,6 @@ func (c *Client) printIncomingMessage() {
 
 	}
 }
+
+
 
