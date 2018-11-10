@@ -110,7 +110,7 @@ func (c *Client) PrintIncomingMessage() {
 		if !c.Connected {
 			return
 		}
-		fmt.Print("Message received: ", message)
+		fmt.Print("> ", message)
 	}
 }
 
