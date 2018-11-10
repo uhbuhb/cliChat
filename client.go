@@ -1,78 +1,105 @@
 package main
 
-import "net"
+import (
+	"io"
+	"net"
+)
 import "fmt"
 import "bufio"
 import "os"
 
 
-var PRINT_DEBUG = false
+var PRINT_DEBUG = true
+
+type Client struct {
+	Connection net.Conn
+	IncomingMessageChannel chan string
+	IncomingMessageReader *bufio.Reader
+	OutgoingMessageChannel chan string
+	OutgoingMessageReader *bufio.Reader
+	Connected bool
+
+}
+
+
 
 func main() {
-
-	// connect to this socket
 	conn, _ := net.Dial("tcp", "localhost:8081")
 
-	incomingMessageChannel := make(chan string)
-	incomingMessageReader := bufio.NewReader(conn)
+	client := Client{
+		conn,
+		make(chan string),
+		bufio.NewReader(conn),
+		make(chan string),
+		bufio.NewReader(os.Stdin),
+		true,
+	}
 
-	outgoingMessageChannel := make(chan string)
-	outgoingMessageReader := bufio.NewReader(os.Stdin)
-
-
-	go ListenForIncomingMessage(incomingMessageReader, incomingMessageChannel)
-	//go WaitForOutgoingMessage(outgoingMessageReader, outgoingMessageChannel)
-
-	go printIncomingMessage(incomingMessageChannel)
-	go sendOutgoingMessage(conn, outgoingMessageChannel)
+	go client.ListenForIncomingMessage()
+	go client.printIncomingMessage()
+	go client.SendOutgoingMessage()
 
 	for {
-		text, _ := outgoingMessageReader.ReadString('\n')
+		//in need to figure out a way to alert user to input message..
+		//fmt.Print("Input>")
+		text, _ := client.OutgoingMessageReader.ReadString('\n')
+		if !client.Connected {
+			fmt.Println("Chat server disconnected.. Goodbye!")
+			return
+		}
 		if PRINT_DEBUG {
 			fmt.Println("read inputted message")
 		}
-		outgoingMessageChannel <- text
+		client.OutgoingMessageChannel <- text
 	}
 
 }
 
 
-func WaitForOutgoingMessage(reader *bufio.Reader, ch chan string) {
+func (c *Client) SendOutgoingMessage() {
 	for {
-		text, _ := reader.ReadString('\n')
-		if PRINT_DEBUG {
-			fmt.Println("read inputted message")
+		outgoingMessageText := <- c.OutgoingMessageChannel
+		if !c.Connected {
+			return
 		}
-		ch <- text
-	}
-}
-
-func sendOutgoingMessage(conn net.Conn, ch chan string) {
-	for {
-		outgoingMessageText := <- ch
 		if PRINT_DEBUG {
 			fmt.Println("sending outgoing string")
 		}
-		fmt.Fprintf(conn, outgoingMessageText)
+		fmt.Fprintf(c.Connection, outgoingMessageText)
 	}
 
 }
 
 
-func ListenForIncomingMessage(reader *bufio.Reader, ch chan string) {
+func (c *Client) ListenForIncomingMessage() {
 	for {
-		message, _ := reader.ReadString('\n')
+		message, err := c.IncomingMessageReader.ReadString('\n')
+		if err != nil {
+			fmt.Println("error reading incoming message, stopping to listen")
+			if err == io.EOF {
+				fmt.Println("connection closed normally")
+				c.Connected = false
+				c.Connection.Close()
+			} else {
+				fmt.Println("got different error: ", err)
+			}
+			return
+		}
 		if PRINT_DEBUG {
 			fmt.Println("read incoming message")
 		}
-		ch <- message
+		c.IncomingMessageChannel <- message
 	}
 }
 
-func printIncomingMessage(ch chan string) {
+func (c *Client) printIncomingMessage() {
 	for {
-		message := <- ch
-		fmt.Println("Message received: ", message)
+		message := <- c.IncomingMessageChannel
+		if !c.Connected {
+			return
+		}
+		fmt.Print("Message received: ", message)
+
 
 	}
 }
