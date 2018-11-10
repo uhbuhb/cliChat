@@ -16,6 +16,8 @@ type ChatServer struct {
 
 type ChatClient struct {
 	Connection net.Conn
+	Reader *bufio.Reader
+	Connected bool
 }
 
 
@@ -25,10 +27,10 @@ func main() {
 		//on new connection add it to chatObject
 
 	//chatObject
+		//holds an array of clients
 		//listens on incoming connection channel
 		//listens on incoming message channel
-		//broadcast message method
-		//holds an array of clients
+		//broadcasts incoming messages
 
 	incomingConnectionChannel := make(chan net.Conn)
 
@@ -68,22 +70,24 @@ func (s *ChatServer) ListenForIncomingConnections() {
 		incomingConnection := <- s.IncomingConnectionChannel
 		fmt.Println("connection came")
 		reader := bufio.NewReader(incomingConnection)
-		go s.ListenForIncomingMessage(reader)
-		s.Clients = append(s.Clients, ChatClient{incomingConnection})
-
+		client := ChatClient{incomingConnection, reader, true}
+		go s.ListenForIncomingMessage(client)
+		s.Clients = append(s.Clients, client)
+		s.Broadcast("Welcome new user, type a message to send to group\n")
 
 	}
 }
 
-func (s *ChatServer) ListenForIncomingMessage(reader *bufio.Reader) {
+func (s *ChatServer) ListenForIncomingMessage(client ChatClient) {
 	for {
-		msg, err := reader.ReadString('\n')
+		msg, err := client.Reader.ReadString('\n')
 		if err!= nil {
 			if err == io.EOF {
 				fmt.Println("user disconnected")
 			} else {
 				fmt.Println("error reading from reader: ", err)
 			}
+			client.Connected = false
 			return
 		}
 		fmt.Println("message came: ", msg)
@@ -91,9 +95,10 @@ func (s *ChatServer) ListenForIncomingMessage(reader *bufio.Reader) {
 			fmt.Println("error reading from reader", err)
 		}
 		//s.IncomingMessageChannel <- msg //this doesnt work for some reason..
-		go s.BroadcastIncoming(msg)
+		go s.Broadcast(msg)
 	}
 }
+
 
 func (s *ChatServer) BroadcastIncomingMessages(){
 	for {
@@ -103,54 +108,26 @@ func (s *ChatServer) BroadcastIncomingMessages(){
 		for _, client := range s.Clients {
 			fmt.Fprintf(client.Connection, message)
 		}
-
 	}
 }
-func (s *ChatServer) BroadcastIncoming(message string) {
+
+
+func (s *ChatServer) Broadcast(message string) {
 	fmt.Println("broadcasting message: ", message)
-	for _, client := range s.Clients {
+	for i, client := range s.Clients {
+		if !client.Connected {
+			s.RemoveClient(i, client)
+			continue
+		}
 		fmt.Fprintf(client.Connection, message)
 	}
 }
 
 
-
-
-
-
-
-
-//func (s ChatServer) handle(conn net.Conn) {
-//	//this starts right after connection was opened
-//	fmt.Println("handling connection..")
-//	s.Connections = append(s.Connections, conn)
-//
-//	for {
-//		message, err := bufio.NewReader(conn).ReadString('\n')
-//		if err != nil {
-//			s.RemoveConnection(conn)
-//		}
-//		fmt.Print("Message Received: ", string(message))
-//
-//		s.broadcast(message)
-//		fmt.Println("broadcasted")
-//	}
-//}
-//
-//func (s ChatServer) broadcast(message string){
-//	fmt.Print("Broadcasting message: ", message)
-//	for _, value := range s.Connections {
-//		value.Write([]byte(message))
-//
-//	}
-//}
-//func (s ChatServer) RemoveConnection(conn net.Conn) {
-//	for i, v := range s.Connections {
-//		if v == conn {
-//			s.Connections = append(s.Connections[:i], s.Connections[i+1:]...)
-//		}
-//	}
-//}
+func (s *ChatServer) RemoveClient(i int, client ChatClient) {
+	client.Connection.Close()
+	s.Clients = append(s.Clients[:i], s.Clients[i+1:]...)
+}
 
 
 
