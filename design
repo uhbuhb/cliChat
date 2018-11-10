@@ -1,0 +1,28 @@
+serverObject:
+	properties:
+		array of connections {user: net.Conn}
+
+
+	methods:
+		broadcast(message): sends message to all connections
+		handle(connection)
+
+
+
+The server needs to have 2 incoming channels: one for incoming connections, one for incoming messages
+
+
+listener = net.listen()
+for {
+	connection = listener.Accept() - blocking
+	client = Client(connection)
+	addConnectionToClientsProperty(client)
+	go handle(connection)
+}
+
+handle(connection){
+	for {
+		message = waitForIncomingMessages(client) - blocking
+		go broadcast(message)
+	}
+}
