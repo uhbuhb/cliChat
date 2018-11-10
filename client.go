@@ -9,7 +9,7 @@ import "bufio"
 import "os"
 
 
-var PRINT_DEBUG = true
+var PRINT_DEBUG = false
 
 type Client struct {
 	Connection net.Conn
@@ -25,7 +25,6 @@ type Client struct {
 
 func main() {
 	conn, _ := net.Dial("tcp", "localhost:8081")
-
 	closeChannel := make(chan bool)
 
 	client := Client{
@@ -48,10 +47,7 @@ func main() {
 			fmt.Println("Chat server disconnected.. Goodbye!")
 			return
 		}
-
 	}
-
-
 
 }
 
@@ -83,7 +79,6 @@ func (c *Client) SendOutgoingMessage() {
 		}
 		fmt.Fprintf(c.Connection, outgoingMessageText)
 	}
-
 }
 
 
@@ -91,14 +86,14 @@ func (c *Client) ListenForIncomingMessage(close chan bool ) {
 	for {
 		message, err := c.IncomingMessageReader.ReadString('\n')
 		if err != nil {
-			fmt.Println("error reading incoming message, stopping to listen")
+			fmt.Println("connection error on listenForIncomingMessages, stopping to listen")
 			if err == io.EOF {
 				fmt.Println("connection closed normally")
 				c.Connected = false
 				c.Connection.Close()
 				close <- true
 			} else {
-				fmt.Println("got different error: ", err)
+				fmt.Println("connection closed strangely.. error: ", err)
 			}
 			return
 		}
