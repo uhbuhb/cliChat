@@ -37,7 +37,7 @@ func main() {
 	}
 
 	go client.ListenForIncomingMessage(closeChannel)
-	go client.printIncomingMessage()
+	go client.PrintIncomingMessage()
 	go client.SendOutgoingMessage()
 	go client.WaitforInput()
 
@@ -104,15 +104,13 @@ func (c *Client) ListenForIncomingMessage(close chan bool ) {
 	}
 }
 
-func (c *Client) printIncomingMessage() {
+func (c *Client) PrintIncomingMessage() {
 	for {
 		message := <- c.IncomingMessageChannel
 		if !c.Connected {
 			return
 		}
 		fmt.Print("Message received: ", message)
-
-
 	}
 }
 
