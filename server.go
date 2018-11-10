@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"net"
 )
 
@@ -26,11 +27,10 @@ func main() {
 	//chatObject
 		//listens on incoming connection channel
 		//listens on incoming message channel
-		//broadcast message feature
+		//broadcast message method
 		//holds an array of clients
 
 	incomingConnectionChannel := make(chan net.Conn)
-
 
 	server := ChatServer {IncomingConnectionChannel: incomingConnectionChannel}
 	server.launchServer()
@@ -58,9 +58,7 @@ func (s *ChatServer) launchServer() {
 	s.Clients = make([]ChatClient, 0)
 
 	go s.ListenForIncomingConnections()
-	go s.BroadcastIncomingMessages()
-
-
+	//go s.BroadcastIncomingMessages()
 
 }
 
@@ -80,6 +78,14 @@ func (s *ChatServer) ListenForIncomingConnections() {
 func (s *ChatServer) ListenForIncomingMessage(reader *bufio.Reader) {
 	for {
 		msg, err := reader.ReadString('\n')
+		if err!= nil {
+			if err == io.EOF {
+				fmt.Println("user disconnected")
+			} else {
+				fmt.Println("error reading from reader: ", err)
+			}
+			return
+		}
 		fmt.Println("message came: ", msg)
 		if err != nil {
 			fmt.Println("error reading from reader", err)
