@@ -7,9 +7,9 @@ import (
 	"net"
 )
 
+
 type ChatServer struct {
 	IncomingConnectionChannel chan net.Conn
-	IncomingMessageChannel chan string
 	Clients map[int]ChatClient
 }
 
@@ -22,17 +22,17 @@ type ChatClient struct {
 
 
 func main() {
-	//init chatObject
+	//init chatObject with incomingConnectionChannel
 	//forever: listen for new connections
-		//on new connection add it to chatObject
+		//on new connection put it to chatClient channel
 
 	//chatObject
-		//holds an array of clients
+		//holds a map of clients
 		//listens on incoming connection channel
-		//listens on incoming message channel
-		//broadcasts incoming messages
+		//listens to each client on incoming message bufio.reader
+		//broadcasts received messages
 
-	incomingConnectionChannel := make(chan net.Conn)
+	incomingConnectionChannel := make(chan net.Conn, 1)
 
 	server := ChatServer {IncomingConnectionChannel: incomingConnectionChannel}
 	server.launchServer()
@@ -45,7 +45,7 @@ func main() {
 
 	for {
 		fmt.Println("waiting for client..")
-		//waits here until client connects
+		//blocks here waiting for client to connect
 		conn, err := listener.Accept()
 		if err != nil {
 			fmt.Println("error accepting connection")
@@ -56,6 +56,7 @@ func main() {
 	
 }
 
+
 func (s *ChatServer) launchServer() {
 	s.Clients = make(map[int]ChatClient)
 	go s.ListenForIncomingConnections()
@@ -65,6 +66,7 @@ func (s *ChatServer) launchServer() {
 func (s *ChatServer) ListenForIncomingConnections() {
 	clientId := 1
 	for {
+		//blocks until something written to channel
 		incomingConnection := <- s.IncomingConnectionChannel
 		fmt.Println("connection came")
 		reader := bufio.NewReader(incomingConnection)
@@ -76,20 +78,19 @@ func (s *ChatServer) ListenForIncomingConnections() {
 	}
 }
 
+
 func (s *ChatServer) ListenForIncomingMessage(clientId int) {
 	for {
 		client := s.Clients[clientId]
+		//blocks until user inputs a message
 		msg, err := client.Reader.ReadString('\n')
-		if err!= nil {
+		if err != nil {
 			if err == io.EOF {
 				fmt.Println("user disconnected")
 				s.RemoveClient(clientId)
 			} else {
 				fmt.Println("error reading from reader: ", err)
 			}
-			//fmt.Println("setting field to false")
-			//client.Connected = false
-			//s.Clients[clientId] = client
 			return
 		}
 		msg = fmt.Sprintf("user%d: %s", clientId, msg)
@@ -101,27 +102,10 @@ func (s *ChatServer) ListenForIncomingMessage(clientId int) {
 	}
 }
 
-//
-//func (s *ChatServer) BroadcastIncomingMessages(){
-//	for {
-//		fmt.Println("waiting for incoming message on channel")
-//		message := <- s.IncomingMessageChannel
-//		fmt.Println("broadcasting message: ", message)
-//		for _, client := range s.Clients {
-//			fmt.Fprintf(client.Connection, message)
-//		}
-//	}
-//}
-
 
 func (s *ChatServer) Broadcast(senderId int, message string) {
 	fmt.Println("broadcasting message: ", message)
 	for clientId, client := range s.Clients {
-		if !client.Connected {
-			fmt.Println("found disconnected client.. removing")
-			s.RemoveClient(clientId)
-			continue
-		}
 		if clientId == senderId {
 			continue
 		}

@@ -8,7 +8,6 @@ import "fmt"
 import "bufio"
 import "os"
 
-
 var PRINT_DEBUG = false
 
 type Client struct {
@@ -22,16 +21,15 @@ type Client struct {
 }
 
 
-
 func main() {
 	conn, _ := net.Dial("tcp", "localhost:8081")
 	closeChannel := make(chan bool)
 
 	client := Client{
 		conn,
-		make(chan string),
+		make(chan string, 1),
 		bufio.NewReader(conn),
-		make(chan string),
+		make(chan string, 1),
 		bufio.NewReader(os.Stdin),
 		true,
 	}
@@ -42,6 +40,7 @@ func main() {
 	go client.WaitforInput()
 
 	for {
+		//client stays open until listenForIncomingMessages gets an error
 		closeClient := <- closeChannel
 		if closeClient {
 			fmt.Println("Chat server disconnected.. Goodbye!")
@@ -54,8 +53,6 @@ func main() {
 
 func (c *Client) WaitforInput() {
 	for {
-		//in need to figure out a way to alert user to input message..
-		//fmt.Print("Input>")
 		text, _ := c.OutgoingMessageReader.ReadString('\n')
 		if !c.Connected {
 			return
@@ -103,6 +100,7 @@ func (c *Client) ListenForIncomingMessage(close chan bool ) {
 		c.IncomingMessageChannel <- message
 	}
 }
+
 
 func (c *Client) PrintIncomingMessage() {
 	for {
