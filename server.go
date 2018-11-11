@@ -10,12 +10,11 @@ import (
 type ChatServer struct {
 	IncomingConnectionChannel chan net.Conn
 	IncomingMessageChannel chan string
-	Clients []ChatClient
-
+	Clients map[int]ChatClient
 }
 
+
 type ChatClient struct {
-	ClientId int
 	Connection net.Conn
 	Reader *bufio.Reader
 	Connected bool
@@ -58,74 +57,72 @@ func main() {
 }
 
 func (s *ChatServer) launchServer() {
-	s.Clients = make([]ChatClient, 0)
-
+	s.Clients = make(map[int]ChatClient)
 	go s.ListenForIncomingConnections()
-	//go s.BroadcastIncomingMessages()
-
 }
 
 
 func (s *ChatServer) ListenForIncomingConnections() {
-	clientId := 0
+	clientId := 1
 	for {
 		incomingConnection := <- s.IncomingConnectionChannel
 		fmt.Println("connection came")
 		reader := bufio.NewReader(incomingConnection)
-		client := ChatClient{clientId, incomingConnection, reader, true}
-		s.Clients = append(s.Clients, client)
-		go s.ListenForIncomingMessage(&s.Clients[len(s.Clients)-1])
-		s.Broadcast(-1, fmt.Sprintf("Welcome new user, there are now %d users\n", len(s.Clients)))
+		client := ChatClient{incomingConnection, reader, true}
+		s.Clients[clientId] = client
+		go s.ListenForIncomingMessage(clientId)
+		s.Broadcast(-1, fmt.Sprintf("Welcome user%d, there are now %d users\n", clientId, len(s.Clients)))
 		clientId++
 	}
 }
 
-func (s *ChatServer) ListenForIncomingMessage(client *ChatClient) {
+func (s *ChatServer) ListenForIncomingMessage(clientId int) {
 	for {
+		client := s.Clients[clientId]
 		msg, err := client.Reader.ReadString('\n')
 		if err!= nil {
 			if err == io.EOF {
 				fmt.Println("user disconnected")
+				s.RemoveClient(clientId)
 			} else {
 				fmt.Println("error reading from reader: ", err)
 			}
-			fmt.Println("setting field to false")
-			client.Connected = false
-			client.Connection.Close()
+			//fmt.Println("setting field to false")
+			//client.Connected = false
+			//s.Clients[clientId] = client
 			return
 		}
-		msg = fmt.Sprintf("user%d: %s", client.ClientId, msg)
+		msg = fmt.Sprintf("user%d: %s", clientId, msg)
 		fmt.Println("message came: ", msg)
 		if err != nil {
 			fmt.Println("error reading from reader", err)
 		}
-		//s.IncomingMessageChannel <- msg //this doesnt work for some reason..
-		go s.Broadcast(client.ClientId, msg)
+		go s.Broadcast(clientId, msg)
 	}
 }
 
-
-func (s *ChatServer) BroadcastIncomingMessages(){
-	for {
-		fmt.Println("waiting for incoming message on channel")
-		message := <- s.IncomingMessageChannel
-		fmt.Println("broadcasting message: ", message)
-		for _, client := range s.Clients {
-			fmt.Fprintf(client.Connection, message)
-		}
-	}
-}
+//
+//func (s *ChatServer) BroadcastIncomingMessages(){
+//	for {
+//		fmt.Println("waiting for incoming message on channel")
+//		message := <- s.IncomingMessageChannel
+//		fmt.Println("broadcasting message: ", message)
+//		for _, client := range s.Clients {
+//			fmt.Fprintf(client.Connection, message)
+//		}
+//	}
+//}
 
 
 func (s *ChatServer) Broadcast(senderId int, message string) {
 	fmt.Println("broadcasting message: ", message)
-	for i, client := range s.Clients {
+	for clientId, client := range s.Clients {
 		if !client.Connected {
 			fmt.Println("found disconnected client.. removing")
-			s.RemoveClient(i, client)
+			s.RemoveClient(clientId)
 			continue
 		}
-		if i == senderId {
+		if clientId == senderId {
 			continue
 		}
 		fmt.Fprintf(client.Connection, message)
@@ -133,15 +130,11 @@ func (s *ChatServer) Broadcast(senderId int, message string) {
 }
 
 
-func (s *ChatServer) RemoveClient(i int, client ChatClient) {
+func (s *ChatServer) RemoveClient(clientId int) {
 	fmt.Println("removing client")
-	client.Connection.Close()
-	s.Clients = append(s.Clients[:i], s.Clients[i+1:]...)
-	s.Broadcast(-1, fmt.Sprintf("User left, there are now %d users\n", len(s.Clients)))
+	s.Clients[clientId].Connection.Close()
+	delete(s.Clients, clientId)
+	s.Broadcast(-1, fmt.Sprintf("User%d left, there are now %d users in chat\n", clientId, len(s.Clients)))
 }
-
-
-
-
 
 
